@@ -1,31 +1,3 @@
-/* vim: set et ts=3 sw=3 sts=3 ft=c:
- *
- * Copyright (C) 2012, 2013, 2014 James McLaughlin et al.  All rights reserved.
- * https://github.com/udp/json-parser
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *   notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *   notice, this list of conditions and the following disclaimer in the
- *   documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */
 
 #include "json.h"
 
@@ -45,8 +17,7 @@ const struct _json_value json_value_none;
 typedef unsigned int json_uchar;
 
 static unsigned char hex_value(json_char c) {
-  if (isdigit(c))
-    return c - '0';
+  if (isdigit(c)) return c - '0';
 
   switch (c) {
     case 'a':
@@ -90,13 +61,10 @@ static void* default_alloc(size_t size, int zero, void* user_data) {
   return zero ? calloc(1, size) : malloc(size);
 }
 
-static void default_free(void* ptr, void* user_data) {
-  free(ptr);
-}
+static void default_free(void* ptr, void* user_data) { free(ptr); }
 
 static void* json_alloc(json_state* state, unsigned long size, int zero) {
-  if ((state->ulong_max - state->used_memory) < size)
-    return 0;
+  if ((state->ulong_max - state->used_memory) < size) return 0;
 
   if (state->settings.max_memory &&
       (state->used_memory += size) > state->settings.max_memory) {
@@ -106,11 +74,8 @@ static void* json_alloc(json_state* state, unsigned long size, int zero) {
   return state->settings.mem_alloc(size, zero, state->settings.user_data);
 }
 
-static int new_value(json_state* state,
-                     json_value** top,
-                     json_value** root,
-                     json_value** alloc,
-                     json_type type) {
+static int new_value(json_state* state, json_value** top, json_value** root,
+                     json_value** alloc, json_type type) {
   json_value* value;
   int values_size;
 
@@ -118,14 +83,12 @@ static int new_value(json_state* state,
     value = *top = *alloc;
     *alloc = (*alloc)->_reserved.next_alloc;
 
-    if (!*root)
-      *root = value;
+    if (!*root) *root = value;
 
     switch (value->type) {
       case json_array:
 
-        if (value->u.array.length == 0)
-          break;
+        if (value->u.array.length == 0) break;
 
         if (!(value->u.array.values = (json_value**)json_alloc(
                   state, value->u.array.length * sizeof(json_value*), 0))) {
@@ -137,8 +100,7 @@ static int new_value(json_state* state,
 
       case json_object:
 
-        if (value->u.object.length == 0)
-          break;
+        if (value->u.object.length == 0) break;
 
         values_size = sizeof(*value->u.object.values) * value->u.object.length;
 
@@ -177,8 +139,7 @@ static int new_value(json_state* state,
     return 0;
   }
 
-  if (!*root)
-    *root = value;
+  if (!*root) *root = value;
 
   value->type = type;
   value->parent = *top;
@@ -188,8 +149,7 @@ static int new_value(json_state* state,
   value->col = state->cur_col;
 #endif
 
-  if (*alloc)
-    (*alloc)->_reserved.next_alloc = value;
+  if (*alloc) (*alloc)->_reserved.next_alloc = value;
 
   *alloc = *top = value;
 
@@ -204,11 +164,10 @@ static int new_value(json_state* state,
   case '\t':           \
   case '\r'
 
-#define string_add(b)            \
-  do {                           \
-    if (!state.first_pass)       \
-      string[string_length] = b; \
-    ++string_length;             \
+#define string_add(b)                                 \
+  do {                                                \
+    if (!state.first_pass) string[string_length] = b; \
+    ++string_length;                                  \
   } while (0);
 
 #define line_and_col state.cur_line, state.cur_col
@@ -222,10 +181,8 @@ static const long flag_next = 1 << 0, flag_reproc = 1 << 1,
                   flag_num_e_negative = 1 << 12, flag_line_comment = 1 << 13,
                   flag_block_comment = 1 << 14;
 
-json_value* json_parse_ex(json_settings* settings,
-                          const json_char* json,
-                          size_t length,
-                          char* error_buf) {
+json_value* json_parse_ex(json_settings* settings, const json_char* json,
+                          size_t length, char* error_buf) {
   json_char error[json_error_max];
   const json_char* end;
   json_value *top, *root, *alloc = 0;
@@ -248,11 +205,9 @@ json_value* json_parse_ex(json_settings* settings,
 
   memcpy(&state.settings, settings, sizeof(json_settings));
 
-  if (!state.settings.mem_alloc)
-    state.settings.mem_alloc = default_alloc;
+  if (!state.settings.mem_alloc) state.settings.mem_alloc = default_alloc;
 
-  if (!state.settings.mem_free)
-    state.settings.mem_free = default_free;
+  if (!state.settings.mem_free) state.settings.mem_free = default_free;
 
   memset(&state.uint_max, 0xFF, sizeof(state.uint_max));
   memset(&state.ulong_max, 0xFF, sizeof(state.ulong_max));
@@ -282,8 +237,7 @@ json_value* json_parse_ex(json_settings* settings,
           goto e_failed;
         }
 
-        if (string_length > state.uint_max)
-          goto e_overflow;
+        if (string_length > state.uint_max) goto e_overflow;
 
         if (flags & flag_escaped) {
           flags &= ~flag_escaped;
@@ -393,8 +347,7 @@ json_value* json_parse_ex(json_settings* settings,
         }
 
         if (b == '"') {
-          if (!state.first_pass)
-            string[string_length] = 0;
+          if (!state.first_pass) string[string_length] = 0;
 
           flags &= ~flag_string;
           string = 0;
@@ -489,8 +442,7 @@ json_value* json_parse_ex(json_settings* settings,
       }
 
       if (flags & flag_done) {
-        if (!b)
-          break;
+        if (!b) break;
 
         switch (b) {
         whitespace:
@@ -719,8 +671,7 @@ json_value* json_parse_ex(json_settings* settings,
                     goto e_failed;
                   }
 
-                  if (num_digits == 1 && b == '0')
-                    flags |= flag_num_zero;
+                  if (num_digits == 1 && b == '0') flags |= flag_num_zero;
                 } else {
                   flags |= flag_num_e_got_sign;
                   num_e = (num_e * 10) + (b - '0');
@@ -739,8 +690,7 @@ json_value* json_parse_ex(json_settings* settings,
               if ((flags & flag_num_e) && !(flags & flag_num_e_got_sign)) {
                 flags |= flag_num_e_got_sign;
 
-                if (b == '-')
-                  flags |= flag_num_e_negative;
+                if (b == '-') flags |= flag_num_e_negative;
 
                 continue;
               }
@@ -823,8 +773,7 @@ json_value* json_parse_ex(json_settings* settings,
           continue;
         }
 
-        if (top->parent->type == json_array)
-          flags |= flag_seek_value;
+        if (top->parent->type == json_array) flags |= flag_seek_value;
 
         if (!state.first_pass) {
           json_value* parent = top->parent;
@@ -847,8 +796,7 @@ json_value* json_parse_ex(json_settings* settings,
           };
         }
 
-        if ((++top->parent->u.array.length) > state.uint_max)
-          goto e_overflow;
+        if ((++top->parent->u.array.length) > state.uint_max) goto e_overflow;
 
         top = top->parent;
 
@@ -885,8 +833,7 @@ e_failed:
       strcpy(error_buf, "Unknown error");
   }
 
-  if (state.first_pass)
-    alloc = root;
+  if (state.first_pass) alloc = root;
 
   while (alloc) {
     top = alloc->_reserved.next_alloc;
@@ -894,8 +841,7 @@ e_failed:
     alloc = top;
   }
 
-  if (!state.first_pass)
-    json_value_free_ex(&state.settings, root);
+  if (!state.first_pass) json_value_free_ex(&state.settings, root);
 
   return 0;
 }
@@ -908,8 +854,7 @@ json_value* json_parse(const json_char* json, size_t length) {
 void json_value_free_ex(json_settings* settings, json_value* value) {
   json_value* cur_value;
 
-  if (!value)
-    return;
+  if (!value) return;
 
   value->parent = 0;
   while (value) {

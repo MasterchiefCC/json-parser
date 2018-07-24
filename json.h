@@ -1,33 +1,3 @@
-
-/* vim: set et ts=3 sw=3 sts=3 ft=c:
- *
- * Copyright (C) 2012, 2013, 2014 James McLaughlin et al.  All rights reserved.
- * https://github.com/udp/json-parser
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *   notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *   notice, this list of conditions and the following disclaimer in the
- *   documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */
-
 #ifndef _JSON_H
 #define _JSON_H
 
@@ -46,13 +16,10 @@
 
 #include <stdlib.h>
 
-#ifdef __cplusplus
-
-#include <string.h>
-
-extern "C" {
-
-#endif
+typedef struct {
+  size_t len;
+  unsigned char* data;
+} ngx_str_t;
 
 typedef struct {
   unsigned long max_memory;
@@ -69,6 +36,7 @@ typedef struct {
   size_t value_extra; /* how much extra space to allocate for values? */
 
 } json_settings;
+
 
 #define json_enable_comments 0x01
 
@@ -96,26 +64,32 @@ typedef struct _json_object_entry {
 
 typedef struct _json_value {
   struct _json_value* parent;
-
+  //类型
   json_type type;
 
   union {
+    // bool
     int boolean;
+    // int
     json_int_t integer;
+    // double
     double dbl;
 
+    // string type
     struct {
       unsigned int length;
       json_char* ptr; /* null terminated */
 
     } string;
 
+    // object type
     struct {
       unsigned int length;
 
       json_object_entry* values;
     } object;
 
+    // array type
     struct {
       unsigned int length;
       struct _json_value** values;
@@ -128,30 +102,20 @@ typedef struct _json_value {
     void* object_mem;
 
   } _reserved;
-
-#ifdef JSON_TRACK_SOURCE
-
-  /* Location of the value in the source JSON
-   */
-  unsigned int line, col;
-
-#endif
-
-  /* Some C++ operator sugar */
-
-
 } json_value;
 
 json_value* json_parse(const json_char* json, size_t length);
 
 #define json_error_max 128
 
-json_value* json_parse_ex(json_settings* settings,
-                          const json_char* json,
-                          size_t length,
-                          char* error);
+json_value* json_parse_ex(json_settings* settings, const json_char* json,
+                          size_t length, char* error);
 
 void json_value_free(json_value*);
+
+json_value* ngx_find_json_name(json_value* root, ngx_str_t* target);
+json_value* ngx_find_json_name_in_object(json_value* root, ngx_str_t* target);
+json_value* ngx_find_json_name_in_array(json_value* root, ngx_str_t* target);
 
 /* Not usually necessary, unless you used a custom mem_alloc and now want to
  * use a custom mem_free.

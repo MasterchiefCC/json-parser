@@ -1,49 +1,11 @@
-/* vim: set et ts=4
- *
- * Copyright (C) 2015 Mirko Pasqualetti  All rights reserved.
- * https://github.com/udp/json-parser
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *   notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *   notice, this list of conditions and the following disclaimer in the
- *   documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 
 #include "json.h"
 
-/*
- * Test for json.c
- *
- * Compile (static linking) with
- *         gcc -o test_json -I.. test_json.c ../json.c -lm
- *
- * Compile (dynamic linking) with
- *         gcc -o test_json -I.. test_json.c -lm -ljsonparser
- *
- * USAGE: ./test_json <json_file>
- */
+#define ngx_string(str) \
+  { sizeof(str) - 1, (char*)str }
 
 static void print_depth_shift(int depth) {
   int j;
@@ -112,6 +74,94 @@ static void process_value(json_value* value, int depth) {
   }
 }
 
+int ngx_strncasecmp(unsigned char* s1, unsigned char* s2, size_t n) {
+  unsigned int c1, c2;
+
+  while (n) {
+    c1 = (unsigned int)*s1++;
+    c2 = (unsigned int)*s2++;
+
+    //小写
+    c1 = (c1 >= 'A' && c1 <= 'Z') ? (c1 | 0x20) : c1;
+    c2 = (c2 >= 'A' && c2 <= 'Z') ? (c2 | 0x20) : c2;
+
+    if (c1 == c2) {
+      if (c1) {
+        n--;
+        continue;
+      }
+      return 0;
+    }
+
+    return c1 - c2;
+  }
+
+  return 0;
+}
+
+json_value* ngx_find_json_name(json_value* root, ngx_str_t* target) {
+  if (root == NULL || target == NULL) return NULL;
+  switch (root->type) {
+    case json_object:
+      return ngx_find_json_name_in_object(root, target);
+    case json_array:
+      return ngx_find_json_name_in_array(root, target);
+    default:
+      return NULL;
+  }
+  return NULL;
+}
+
+json_value* ngx_find_json_name_in_object(json_value* root, ngx_str_t* target) {
+  int length, i;
+  json_object_entry temp;
+  json_value* ret;
+  if (root == NULL || target == NULL || root->type != json_object) return NULL;
+
+  length = root->u.object.length;
+  // root->u.object.values[x].name||value;
+
+  for (i = 0; i < length; ++i) {
+    temp = root->u.object.values[i];
+    if (ngx_strncasecmp(temp.name, target->data, target->len) == 0) {
+      return temp.value;
+    }
+
+    switch (temp.value->type) {
+      case json_object:
+        ret = ngx_find_json_name_in_object(temp.value, target);
+        if (ret != NULL) return ret;
+        break;
+      case json_array:
+        ret = ngx_find_json_name_in_array(temp.value, target);
+        if (ret != NULL) return ret;
+        break;
+      default:
+        break;
+    }
+  }
+
+  return NULL;
+}
+
+json_value* ngx_find_json_name_in_array(json_value* root, ngx_str_t* target) {
+  int length, i;
+  struct _json_value* temp;
+  json_value* ret;
+  if (root == NULL || target == NULL || root->type != json_array) return NULL;
+
+  length = root->u.array.length;
+
+  for (i = 0; i < length; ++i) {
+    temp = root->u.array.values[i];
+    if (temp->type != json_object) continue;
+
+    ret = ngx_find_json_name_in_object(temp, target);
+    if (ret != NULL) return ret;
+  }
+  return NULL;
+}
+
 int main(int argc, char** argv) {
   char* filename;
   FILE* fp;
@@ -119,7 +169,7 @@ int main(int argc, char** argv) {
   int file_size;
   char* file_contents;
   json_char* json;
-  json_value* value;
+  json_value *value, *ret;
 
   if (argc != 2) {
     fprintf(stderr, "%s <file_json>\n", argv[0]);
@@ -159,17 +209,42 @@ int main(int argc, char** argv) {
 
   json = (json_char*)file_contents;
 
+  //   char buffer[]={"
+  //   {
+  //     \"name\": \"网站\",
+  //     \"num\": 3,
+  //     \"sites\": [
+  //         \"Google\",
+  //         \"Runoob\",
+  //         \"Taobao\"
+  //     ]
+  //   }"
+  // };
+  // json = (json_char*)buffer;
+  // file_size = sizeof(buffer);
+
   value = json_parse(json, file_size);
 
   if (value == NULL) {
     fprintf(stderr, "Unable to parse data\n");
-    free(file_contents);
+
     exit(1);
   }
 
   process_value(value, 0);
 
+  printf("--------------------------------\n\n");
+
+  ngx_str_t servlet = ngx_string("servlet");
+
+  ret = ngx_find_json_name(value, &servlet);
+
+  ngx_str_t target = ngx_string("servlet-class");
+
+  ret = ngx_find_json_name(ret, &target);
+
+  process_value(ret, 0);
+
   json_value_free(value);
-  free(file_contents);
   return 0;
 }
